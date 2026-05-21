@@ -11,17 +11,17 @@ end = '2026-04-30'
 
 # Tickers: ^GSPC for S&P 500 and GC=F for Gold Futures
 tickers = ['ES=F', 'NQ=F', 'GC=F', 'HG=F','ZN=F']
-macroindicators = ['DBAA','DGS10','DGS20','DGS30','VIXCLS','T10Y2Y','T10Y3M','DAAA']
+macroindicators = ['DBAA','DAAA','DGS30','T10Y2Y','VIXCLS','DTB3']
 
 # Fetch data for the last 30 years
 df_data = yf.download(tickers, period='30y')
 df_data = df_data.ffill()
 df_returns = np.log(df_data['Close']).diff()
 df_returns = ml.trimdf(df_returns,begin,end)
-df_returns.columns = [s.replace('=','_') for s in df_returns.columns]
+df_returns.columns = [s.replace('=','_').replace('.','_').replace('-','_') for s in df_returns.columns]
 df_data = ml.trimdf(df_data,begin,end)
 df_closes = df_data['Close']
-df_closes.columns = [s.replace('=','_') for s in df_closes.columns]
+df_closes.columns = [s.replace('=','_').replace('.','_').replace('-','_') for s in df_closes.columns]
 df_returnscv = ml.convol(df_returns,target=0.2,maxlev=5)
 df_returnscvp = ml.convol(df_returns,target=0.2,maxlev=5,port=True) #same but using portfolio object
 
@@ -103,7 +103,7 @@ gcr = df_closes.GC_F/df_closes.HG_F
 sgr = df_closes.ES_F/df_closes.GC_F
 sbr = df_closes.ES_F/df_closes.ZN_F
 t=ml.splice(rets_train.ES_F,-(lir-ml.EMA((lir),200)).shift(1),dir="long");ml.strat_stats(t)
-t=ml.splice(rets_train.ES_F,-(df_fred_d.DGS10-ml.EMA(df_fred_d.DGS10,200)).rolling(window=1, center=False).min().shift(1),dir="long");ml.strat_stats(t)
+t=ml.splice(rets_train.ES_F,(df_fred_d.DGS30-ml.EMA(df_fred_d.DGS30,200)).rolling(window=1, center=False).min().shift(1),dir="long");ml.strat_stats(t)
 t=ml.splice(rets_train.ES_F,-(df_fred_d.T10Y2Y-ml.EMA(df_fred_d.T10Y2Y,200)).rolling(window=5, center=False).min().shift(1),dir="long");ml.strat_stats(t)
 t=ml.splice(rets_train.ES_F,-(df_fred_d.DBAA-ml.EMA(df_fred_d.DBAA,200)).shift(1),dir="long");ml.strat_stats(t)
 t=ml.splice(rets_train.ES_F,-(df_fred_d.VIXCLS-ml.EMA(df_fred_d.VIXCLS,200)).shift(1),dir="long");ml.strat_stats(t)
@@ -128,12 +128,13 @@ p1=ml.portmean([t1,t2,t3],port=True);ml.strat_stats(p1,benchmark=rets_train.ES_F
 p2=ml.portmean([t1,t2,t3,d1],port=True);ml.strat_stats(p2,benchmark=rets_train.ES_F)
 p3=ml.portmean([t1,t2,t3,d2],port=True);ml.strat_stats(p3,benchmark=rets_train.ES_F)
 #as p3 has low vol, we may look into more levared version, here we add levarage to match vol of equity market
-lev = rets_train.ES_F.std()/p3.calculate_portfolio_returns().std()
-lev_series = np.minimum(lev,(ml.emavol(rets_train.ES_F,21*12)/ml.emavol(p3.calculate_portfolio_returns(),21*12)).shift(1))
+print(rets_train.ES_F.std()/p3.calculate_portfolio_returns().std())
+print((0.2/ml.emavol(p3.calculate_portfolio_returns(),21*1,252).shift(1)).mean())
+#then we compute dynamic ratio using moving window vol, we use the former scalar as max lev, we also use asinh centralized at 1 as signal flattener
+lev_series = np.minimum(7,0.2/ml.emavol(p3.calculate_portfolio_returns(),21*1,252).shift(1))
+lev_series = np.asinh(lev_series-1)+1
 lev_series.iloc[0:2]=1
-lev_series.describe()
 p3b=ml.portmean([t1,t2,t3,d2],lev=lev_series,port=True);ml.strat_stats(p3b,benchmark=rets_train.ES_F)
-
 # we can see exact positioning of each asset in .weights field:
 p3b.weights.describe()
 p3b.weights.sum(axis=1).describe() #how total levarage changes over time
@@ -148,9 +149,9 @@ po1=ml.portmean([to1,to2,to3],port=True);ml.strat_stats(po1,benchmark=rets_test.
 po2=ml.portmean([to1,to2,to3,do1],port=True);ml.strat_stats(po2,benchmark=rets_test.ES_F)
 po3=ml.portmean([to1,to2,to3,do2],port=True);ml.strat_stats(po3,benchmark=rets_test.ES_F)
 #again we want to see vol adjusted version of strategy, so again apply lev at strat level
-lev_series_o = np.minimum(lev,(ml.emavol(rets_test.ES_F,21*12)/ml.emavol(po3.calculate_portfolio_returns(),21*12)).shift(1))
+lev_series_o = np.minimum(7,0.2/ml.emavol(po3.calculate_portfolio_returns(),21*1,252).shift(1))
+lev_series_o = np.asinh(lev_series_o-1)+1
 lev_series_o.iloc[0:2]=1
-lev_series_o.describe()
 po3b=ml.portmean([to1,to2,to3,do2],lev=lev_series_o,port=True);ml.strat_stats(po3b,benchmark=rets_test.ES_F)   
 ml.pltcum(po1)
 ml.pltcum(po2)

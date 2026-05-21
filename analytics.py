@@ -26,13 +26,36 @@ def maxdd_rel(returns,stress=None):
     start = int(r.iloc[:end].argmax())
     return mdd, start, end
 
-def SR(x,b=252,con=False):
+def corr_stability(df,window = 30):
+    # 1. Compute pairwise rolling correlation (returns a MultiIndex DataFrame)
+    rolling_corr_matrix = df.rolling(window=window).corr()
+    
+    # 2. Unstack to move the second asset level into the columns
+    pairwise_corr = rolling_corr_matrix.unstack(level=1)
+    
+    # 3. FIX: Explicitly extract only unique pairs (avoids A-A self-corr and B-A duplicates)
+    unique_pairs = [(col1, col2) for col1 in df.columns for col2 in df.columns if col1 < col2]
+    pairwise_corr_unique = pairwise_corr[unique_pairs]
+    
+    # 4. Calculate your stability metrics using the properly filtered data
+    metrics = pd.DataFrame({
+        'Mean': pairwise_corr_unique.mean(),
+        'Std_Dev': pairwise_corr_unique.std(),
+        'Min': pairwise_corr_unique.min(),
+        'Max': pairwise_corr_unique.max()
+    })
+    
+    # 5. Calculate the Min-Max Spread
+    metrics['Min_Max_Spread'] = metrics['Max'] - metrics['Min']
+    
+    return metrics
+        
+def SR(x,b=252,con=False,rf=0):
     if isinstance(x, st.Portfolio):
         # Access internal attributes
-        y = x.calculate_portfolio_returns()       
+        y = st.log2rel(x.calculate_portfolio_returns()) - rf
     else:
-        #y = np.log(1+x)
-        y=x
+        y = st.log2rel(x) - rf
     if con:
         nas_pct = 0
     else:    

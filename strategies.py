@@ -81,6 +81,13 @@ class Portfolio:
         daily_returns = rel2log((self.weights*log2rel(self.returns)).sum(axis=1))
         return daily_returns
 
+    def calculate_portfolio_vols_nocorr(self,n=21) -> pd.Series:
+        """Calculates the daily weighted avarege ewma vol with 0 correlation assumption"""
+        # Element-wise multiplication of weights and vols, then sum across assets
+        df_vols = an.emavol(self.returns,n)
+        df_vols = (self.weights*df_vols.shift(1)).sum(axis=1)
+        return df_vols
+    
 def levret(a,r):
     if isinstance(r, Portfolio):
         r.weights = a*r.weights
