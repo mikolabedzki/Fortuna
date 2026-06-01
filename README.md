@@ -44,7 +44,8 @@ df_fred_d = df_returns.GC_F.to_frame().join(df_fred_d).iloc[:,1:] #align indicat
 df_fred_d = df_fred_d.ffill()
 ```
 
-#split sets for training and testing
+split sets for training and testing
+
 ``` Python
 retscv_train, retscv_test, rets_train, rets_test = sklms.train_test_split(df_returnscv, df_returns, test_size=0.5, shuffle=False)
 ```
@@ -92,15 +93,16 @@ ft.strat_stats(ft.portmean([rets_train]))
 ft.strat_stats(ft.portmean([retscv_train]))
 ```
 
-particularly below is nonequity part, which we can consider defensive assets
+below is the nonequity part, which we can consider defensive assets
+
 ``` Python
 d1=ft.portmean([rets_train.GC_F,rets_train.HG_F,rets_train.ZN_F],port=True);ft.strat_stats(d1)
 d2=ft.portmean([retscvp_train.GC_F,retscvp_train.HG_F,retscvp_train.ZN_F],port=True);ft.strat_stats(d2)
 ```
 
-below we test some ideas from alvarezquanttrading.com
+then, we test some ideas from alvarezquanttrading.com
 
-first, TA based strategies for ES_F
+as the first topic, we look at TA based strategies for ES_F
 
 ``` Python
 t=ft.splice(rets_train.ES_F,(ft.coppock_ts_momentum(df_closes.ES_F).diff(21*3)).shift(1),dir="long");ft.strat_stats(t)
@@ -133,7 +135,7 @@ t=ft.splice(rets_train.ES_F,(df_closes.ES_F-ft.SMA((df_closes.ES_F),200)).rollin
 t=ft.switcher(rets_train.ES_F,rets_train.GC_F,(df_closes.ES_F-ft.SMA((df_closes.ES_F),200)).rolling(window=5, center=False).min().shift(1));ft.strat_stats(t)
 ```
 
-second, non-TA based strategies aka exog based strats
+as the second topic, we look at non-TA based strategies aka exog based strats
 
 instead of LQD and IEF funds ratio we will use following ratio: "BAA corp yields"/"AAA corp yields"
 we will also add some additional ratios, since we also avoid using VWO and BND funds due to short history
@@ -163,6 +165,7 @@ t=ft.splice(rets_train.ES_F,((ft.weighted_ts_momentum(df_closes.GC_F)>0)).shift(
 
 here no longer ideas from aforementioned website, we will create some portfolio and analyze it
 we will select 3 best strats in different categories, this time we will call functions with port=True for full traceability
+
 ``` Python
 t1=ft.splice(rets_train.ES_F,(df_closes.ES_F-ft.SMA((df_closes.ES_F),200)).rolling(window=5, center=False).min().shift(1),dir="long",port=True);ft.strat_stats(t1)
 t2=ft.splice(rets_train.ES_F,(cgr-ft.EMA((cgr),200)).rolling(window=5, center=False).min().shift(1),dir="long",port=True);ft.strat_stats(t2)
@@ -209,6 +212,7 @@ po3=ft.portmean([to1,to2,to3,do2],port=True);ft.strat_stats(po3,benchmark=rets_t
 ```
 
 again we want to see vol adjusted version of strategy, so again apply lev at strat level
+
 ``` Python
 lev_series_o = np.minimum(7,0.2/ft.emavol(po3.calculate_portfolio_returns(),21*1,252).shift(1))
 lev_series_o = np.asinh(lev_series_o-1)+1
